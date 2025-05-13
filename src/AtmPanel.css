@@ -1,0 +1,109 @@
+.atm-panel-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.atm-panel {
+    background-color: #ffffff;
+    border-radius: 16px;
+    padding: 24px;
+    width: 90%;
+    max-width: 450px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    animation: slideIn 0.3s ease-out;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.atm-panel h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #2c3e50;
+}
+
+.atm-panel label {
+    display: block;
+    margin-bottom: 12px;
+    font-weight: 500;
+    color: #34495e;
+}
+
+.atm-panel input,
+.atm-panel select {
+    width: 100%;
+    padding: 10px;
+    margin-top: 4px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    outline: none;
+    font-size: 14px;
+    transition: border-color 0.2s;
+}
+
+.atm-panel input:focus,
+.atm-panel select:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+}
+
+.panel-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 16px;
+}
+
+.panel-buttons button {
+    flex: 1;
+    padding: 10px;
+    margin: 0 5px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 600;
+    transition: background-color 0.3s, transform 0.1s;
+}
+
+.panel-buttons button:hover {
+    background-color: #2980b9;
+}
+
+.panel-buttons button:active {
+    transform: scale(0.98);
+}
+
+@media screen and (max-width: 480px) {
+    .atm-panel {
+        padding: 16px;
+        width: 95%;
+    }
+
+    .panel-buttons {
+        flex-direction: column;
+    }
+
+    .panel-buttons button {
+        margin: 5px 0;
+    }
+}

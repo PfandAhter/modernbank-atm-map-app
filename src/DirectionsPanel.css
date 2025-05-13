@@ -1,0 +1,95 @@
+.directions-panel {
+    position: absolute;
+    bottom: 20px;
+    height: 400px;
+    width: 370px;
+    left: 20px;
+    background-color: #0a3d42;
+    padding: 20px;
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    max-width: 370px;
+    overflow-y: auto;
+    z-index: 1000;
+    backdrop-filter: blur(8px);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+
+
+/* Scrollbar özelleştirme - Chrome/Edge */
+.directions-panel::-webkit-scrollbar {
+    width: 10px;
+}
+
+.directions-panel::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.directions-panel::-webkit-scrollbar-thumb {
+    background-color: #c1c1c1;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+
+.directions-panel::-webkit-scrollbar-thumb:hover {
+    background-color: #a1a1a1;
+}
+
+/* Firefox destek */
+.directions-panel {
+    scrollbar-width: thin;
+    scrollbar-color: #c1c1c1 transparent;
+
+}
+
+.panel-header {
+    margin-top: 0px;
+    margin-bottom: 6px;
+    font-size: 16px;
+    font-weight: 600;
+    color: white;
+}
+
+.panel-subheader {
+    font-size: 14px;
+    font-weight: 500;
+    color: #d1d1d1;
+}
+
+
+.steps-list {
+    list-style: none;
+    padding: 0;
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.step-item {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    background-color: #f9f9f9;
+    padding: 10px;
+    border-radius: 10px;
+    transition: background 0.3s;
+}
+
+.step-icon {
+    font-size: 18px;
+    margin-top: 2px;
+}
+
+.step-name {
+    font-weight: 500;
+    font-size: 14px;
+    color: #222;
+}
+
+.step-meta {
+    font-size: 13px;
+    color: #666;
+}
