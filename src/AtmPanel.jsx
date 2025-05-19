@@ -39,12 +39,17 @@ function AtmPanel({ isOpen, togglePanel, selectedAtm }) {
         const value = e.target.value;
         setIdentifier(value);
 
+        if (value.length > 11 && !value.startsWith('TR')){
+            alert("Lutfen gecerli bir TC veya IBAN giriniz.");
+            return;
+        }
+
         if (value.length === 11 && /^\d{11}$/.test(value)) {
             // TC girildi
             setIsIbanMode(false);
             setNamePreview('');
             setNameInput('');
-        } else if (value.length >= 15) {
+        } else if (value.length >= 26) {
             // IBAN girildi
             setIsIbanMode(true);
 
@@ -77,7 +82,7 @@ function AtmPanel({ isOpen, togglePanel, selectedAtm }) {
             return;
         }
 
-        if (identifier.length === 11 || !identifier.startsWith("TR")) {
+        if (identifier.length === 11 && !identifier.startsWith("TR")) {
             axios.post('http://localhost:8082/api/v1/transaction/transfer/atm', {
                 atmId: selectedAtm.id,
                 senderIban: selectedAccountIban,
@@ -89,7 +94,7 @@ function AtmPanel({ isOpen, togglePanel, selectedAtm }) {
                 description: description
 
             }).then(() => alert("Transfer başarılı.")).catch(console.error);
-        } else if (identifier.length >= 26 || identifier.startsWith("TR")) {
+        } else if (identifier.length === 26 && identifier.startsWith("TR")) {
             // IBAN transferinde alıcı tam adını kontrol et
 
             if (!nameInput.trim()) {

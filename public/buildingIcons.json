@@ -1,0 +1,258 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [32.512519, 38.026596]
+      },
+      "properties": {
+        "title": "Camii",
+        "icon": "mosque-icon"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [32.510388, 38.025729]
+      },
+      "properties": {
+        "title": "TURK Bayragi",
+        "icon": "turkish-flag"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [32.514708, 38.020853]
+      },
+      "properties": {
+        "title": "TURK Bayragi",
+        "icon": "turkish-flag"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [32.505249, 38.024572]
+      },
+      "properties": {
+        "title": "Hukuk Fakultesi",
+        "icon": "faculty-icon"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [32.506032, 38.025544]
+      },
+      "properties": {
+        "title": "Fen Fakultesi",
+        "icon": "faculty-icon"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [32.506681, 38.026279]
+      },
+      "properties": {
+        "title": "Edebiyat Fakultesi",
+        "icon": "faculty-icon"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [32.509414, 38.028654]
+      },
+      "properties": {
+        "title": "Teknoloji Fakultesi",
+        "icon": "faculty-icon"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [32.508244, 38.027669]
+      },
+      "properties": {
+        "title": "Yabanci Diller Yuksekokulu",
+        "icon": "faculty-icon"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [32.510282, 38.029638]
+      },
+      "properties": {
+        "title": "Ziraat Fakultesi",
+        "icon": "faculty-icon"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [32.512885, 38.028814]
+      },
+      "properties": {
+        "title": "Veterinerlik Fakultesi",
+        "icon": "faculty-icon"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [32.509830, 38.026710]
+      },
+      "properties": {
+        "title": "Muhendislik Fakultesi",
+        "icon": "faculty-icon"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [32.506927, 38.023693]
+      },
+      "properties": {
+        "title": "Mimarlik Fakultesi",
+        "icon": "faculty-icon"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [32.508043, 38.022890]
+      },
+      "properties": {
+        "title": "Sosyal Bilimler MYO",
+        "icon": "faculty-icon"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [32.509560, 38.022034]
+      },
+      "properties": {
+        "title": "Dis hekimligi Fakultesi",
+        "icon": "faculty-icon"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [32.508476, 38.020284]
+      },
+      "properties": {
+        "title": "Saglik Bilimleri Fakultesi",
+        "icon": "faculty-icon"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [32.511847, 38.021603]
+      },
+      "properties": {
+        "title": "Tip Fakultesi",
+        "icon": "faculty-icon"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [32.503843, 38.027629]
+      },
+      "properties": {
+        "title": "Guzel Sanatlar Fakultesi",
+        "icon": "faculty-icon"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [32.505967, 38.029648]
+      },
+      "properties": {
+        "title": "Teknik Bilimler MYO",
+        "icon": "faculty-icon"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [32.512662, 38.020402]
+      },
+      "properties": {
+        "title": "Selcuk Universitesi Hastanesi",
+        "icon": "hospital-icon"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [32.504009, 38.021324]
+      },
+      "properties": {
+        "title": "Alaadin Ogrenci Yurdu",
+        "icon": "dormBuilding-icon"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [32.501620, 38.020639]
+      },
+      "properties": {
+        "title": "Buyuk Selcuklu Ogrenci Yurdu",
+        "icon": "dormBuilding-icon"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [32.513879, 38.022110]
+      },
+      "properties": {
+        "title": "Gokkusagi AVM",
+        "icon": "gokkusagi-icon"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [32.509487, 38.023469]
+      },
+      "properties": {
+        "title": "Enstitu",
+        "icon": "institute-icon"
+      }
+    }
+  ]
+}

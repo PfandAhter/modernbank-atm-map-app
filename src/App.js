@@ -1,14 +1,15 @@
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Map, { Marker, NavigationControl, Source, Layer } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import mapboxgl from 'mapbox-gl'
 import axios from 'axios';
+import html2canvas from 'html2canvas';
 import './App.css';
 import MiniMap from "./MiniMap";
 import DirectionsPanel from "./DirectionsPanel";
+import QRPage  from "./QRPage";
+import { uploadImageToImgBB } from './uploadImageToImgBB';
 import AtmPanel from "./AtmPanel";
-
 
 import NotificationPanel from './NotificationPanel';
 
@@ -34,9 +35,16 @@ function App() {
     const [selectedAtm, setSelectedAtm] = useState(null);
     const [isSendMoneyPanelOpen, setIsSendMoneyPanelOpen] = useState(false);
     const [directionsPanelVisible, setDirectionsPanelVisible] = useState(false);
+    const [isQrCodePanelOpen, setIsQrCodePanelOpen] = useState(false);
 
     const toggleSendMoneyPanel = () => {
         setIsSendMoneyPanelOpen(!isSendMoneyPanelOpen);
+
+        setIsControlPaneDisabled(false); // Panel açıldığında kontrol panelini etkinleştir
+    };
+
+    const toggleQrCodePanel = () =>{
+        setIsQrCodePanelOpen(!isQrCodePanelOpen);
 
         setIsControlPaneDisabled(false); // Panel açıldığında kontrol panelini etkinleştir
     };
@@ -60,16 +68,17 @@ function App() {
     const [filterDepositStatus, setFilterDepositStatus] = useState('all');
     const [filterWithdrawStatus, setFilterWithdrawStatus] = useState('all');
 
+    const [screenshotLoading, setScreenshotLoading] = useState(false);
+    const mapContainerRef = useRef(null);
 
     const [atmLocations, setAtmLocations] = useState([]);
+    const [qrImageData, setQrImageData] = useState(null); // QR verisi
+    const [screenshotUrl, setScreenshotUrl] = useState(null); // Harita görüntüsü
 
     const [buildingHeight, setBuildingHeight] = useState(1);
 
     // Kullanıcı konumu ve rota state'leri
     const [userPosition, setUserPosition] = useState(null);
-
-
-
     const [isDragging, setIsDragging] = useState(false);
     const [showRetryModal, setShowRetryModal] = useState(false);
     const [routeData, setRouteData] = useState(null);
@@ -213,7 +222,7 @@ function App() {
         lineMetrics: true // Bu kısım önemli - gradient için gerekli
     }), [routeData]);
 
-    // Rota noktası katmanı - kullanıcının izlediği konum için
+    // Rota noktası katmanı - kullanıcının izlediği konum için TODO KALDIRILICAK
     const routePointLayer = {
         id: 'route-point',
         type: 'circle',
@@ -232,9 +241,263 @@ function App() {
     }, []);
 
     useEffect(() => {
-        getStatusOptions();
+        if (!mapRef.current) return;
+        const map = mapRef.current.getMap();
+        addCustomIconsAndImagesToMap(map);
+    }, [mapRef]);
+
+    const handleSourceData = (e) => {
+        const source = e.source;
+        if (!source) return;
+
+        // Sadece "composite" source ve "building" layer'ı varsa işleme devam et
+        if (source.id === 'composite' && source.type === 'vector') {
+            const terrainSourceExists = mapRef.current?.getSource('mapbox-dem');
+            const buildingLayerExists = mapRef.current?.getLayer('3d-buildings'); // Layer ID kontrolü yap
+
+            if (!terrainSourceExists) {
+                console.warn('3D terrain için gerekli "mapbox-dem" kaynağı bulunamadı.');
+            }
+            if (!buildingLayerExists) {
+                console.warn('3D bina katmanı yüklenmedi veya eksik.');
+            }
+        }
+    };
+
+
+    const renderMarkersAsGeoJSON = useMemo(() => {
+        const atmFeatures = filteredAtmLocations.map((atm) => ({
+            type: 'Feature',
+            geometry: {
+                type: 'Point',
+                coordinates: [atm.longitude, atm.latitude],
+            },
+            properties: {
+                id: atm.id,
+                icon: 'atm-icon', // ATM ikonu
+            },
+        }));
+
+        const userFeature = userPosition
+            ? {
+                type: 'Feature',
+                geometry: {
+                    type: 'Point',
+                    coordinates: [userPosition.longitude, userPosition.latitude],
+                },
+                properties: {
+                    id: 'user',
+                    icon: 'user-icon', // Kullanıcı ikonu
+                },
+            }
+            : null;
+
+        return {
+            type: 'FeatureCollection',
+            features: userFeature ? [...atmFeatures, userFeature] : atmFeatures,
+        };
+    }, [filteredAtmLocations, userPosition]);
+
+    const addCustomIconsAndImagesToMap = (map) => {
+        const icons = [
+            { name: 'mosque-icon', url: '/icons/mosque.png' },
+            { name: 'turkish-flag', url: '/icons/turkishflag.png' },
+            { name: 'faculty-icon', url: '/icons/facultyBuilding.png' },
+            { name: 'hospital-icon', url: '/icons/hospital.png' },
+            { name: 'dormBuilding-icon', url: '/icons/dormBuilding.png' },
+            { name: 'gokkusagi-icon', url: '/icons/gokkusagi.png' },
+            { name: 'institute-icon', url: "/icons/institute.png"}
+        ];
+
+        const loadIcons = () => {
+            return Promise.all(
+                icons.map(icon =>
+                    new Promise((resolve, reject) => {
+                        if (map.hasImage(icon.name)) {
+                            resolve();
+                        } else {
+                            map.loadImage(icon.url, (error, image) => {
+                                if (error) {
+                                    reject(error);
+                                } else {
+                                    if (!map.hasImage(icon.name)) {
+                                        map.addImage(icon.name, image);
+                                    }
+                                    resolve();
+                                }
+                            });
+                        }
+                    })
+                )
+            );
+        };
+
+        // Add a red outline or highlight for the selected ATM
+        map.loadImage('/icons/atm.png', (error, image) => {
+            if (error) throw error;
+            if (!map.hasImage('atm-icon')) {
+                map.addImage('atm-icon', image);
+            }
+
+            if (!map.getSource('atm-points')) {
+                map.addSource('atm-points', {
+                    type: 'geojson',
+                    data: {
+                        type: 'FeatureCollection',
+                        features: filteredAtmLocations.map(atm => ({
+                            type: 'Feature',
+                            geometry: {
+                                type: 'Point',
+                                coordinates: [atm.longitude, atm.latitude]
+                            },
+                            properties: {
+                                id: atm.id,
+                                icon: 'atm-icon'
+                            }
+                        }))
+                    }
+                });
+
+                map.addLayer({
+                    id: 'atm-icons-layer',
+                    type: 'symbol',
+                    source: 'atm-points',
+                    layout: {
+                        'icon-image': ['get', 'icon'],
+                        'icon-size': [
+                            'match',
+                            ['get', 'icon'],
+                            'atm-icon', 0.001,
+                            0.3
+                        ],
+                        'icon-allow-overlap': true
+                    }
+                });
+            }
+
+            // Add a source for the selected ATM
+            if (!map.getSource('selected-atm')) {
+                map.addSource('selected-atm', {
+                    type: 'geojson',
+                    data: {
+                        type: 'FeatureCollection',
+                        features: [] // Initially empty
+                    }
+                });
+
+                // Add a layer to highlight the selected ATM
+                map.addLayer({
+                    id: 'selected-atm-layer',
+                    type: 'circle',
+                    source: 'selected-atm',
+                    paint: {
+                        'circle-radius': 10, // Size of the highlight
+                        'circle-color': 'red', // Red color for the highlight
+                        'circle-stroke-width': 2,
+                        'circle-stroke-color': 'white' // Optional white border
+                    }
+                });
+            }
+        });
+
+        const loadGeoJSON = () => fetch('buildingIcons.json').then(res => res.json());
+        const loadParkAreas = () => fetch('parkAreas.json').then(res => res.json());
+
+        const addMultipleImagesToMap = (images) => {
+            images.forEach(({ id, url, coordinates }) => {
+                if (!map.getSource(id)) {
+                    map.addSource(id, {
+                        type: 'image',
+                        url: url,
+                        coordinates: coordinates
+                    });
+
+                    map.addLayer({
+                        id: `${id}-layer`,
+                        type: 'raster',
+                        source: id,
+                        paint: {
+                            'raster-opacity': 0.85
+                        }
+                    });
+                }
+            });
+        };
+
+        Promise.all([loadIcons(), loadGeoJSON(), loadParkAreas()])
+            .then(([_, points, parkAreas]) => {
+                if (!map.getSource('multiple-icons')) {
+                    map.addSource('multiple-icons', {
+                        type: 'geojson',
+                        data: points
+                    });
+
+                    map.addLayer({
+                        id: 'multiple-icons-layer',
+                        type: 'symbol',
+                        source: 'multiple-icons',
+                        layout: {
+                            'icon-image': ['get', 'icon'],
+                            'icon-size': [
+                                'match',
+                                ['get', 'icon'],
+                                'mosque-icon', 0.2,
+                                'turkish-flag', 0.4,
+                                'faculty-icon', 0.4,
+                                'hospital-icon', 0.4,
+                                'dormBuilding-icon', 0.4,
+                                'gokkusagi-icon', 0.4,
+                                'institute-icon', 0.4,
+                                0.4
+                            ],
+                            'icon-allow-overlap': true,
+                            'text-field': ['get', 'title'],
+                            'text-offset': [0, 1.2],
+                            'text-anchor': 'top',
+                            'text-size': 20
+                        },
+                        paint: {
+                            'text-color': '#ffffff'
+                        }
+                    }, getTopLayerId(map));
+                }
+
+                // Park alanlarını ekle
+                addMultipleImagesToMap(parkAreas);
+            })
+            .catch(err => console.error('Veriler yüklenirken hata oluştu:', err));
+    };
+
+    // Function to update the selected ATM
+    const updateSelectedATM = useCallback((atm) => {
+        const selectedATMData = {
+            type: 'FeatureCollection',
+            features: atm
+                ? [{
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [atm.longitude, atm.latitude]
+                    },
+                    properties: {}
+                }]
+                : [] // Clear the selection if no ATM is selected
+        };
+
+        const map = mapRef.current?.getMap();
+        if (map?.getSource('selected-atm')) {
+            map.getSource('selected-atm').setData(selectedATMData);
+        }
     }, []);
 
+    function getTopLayerId(map) {
+        const layers = map.getStyle().layers;
+        return layers && layers.length > 0 ? layers[layers.length - 1].id : undefined;
+    }
+
+    useEffect(() => {
+        getStatusOptions();
+    }, []);
 
     const getStatusOptions = async () => {
         try{
@@ -266,7 +529,6 @@ function App() {
             });
 
             console.log("ATM verisi alındı:", response.data);
-            debugger;
 
             if (response.status === 200 && response.data?.atmStatusDTOList) {
                 const atmList = response.data.atmStatusDTOList.map((atm, index) => ({
@@ -306,7 +568,6 @@ function App() {
             }, error => {
                 console.error("Konum alınamadı:", error);
                 // Varsayılan konum olarak İstanbul'u kullan
-                setUserPosition({ latitude: 41.0082, longitude: 28.9784 });
             });
         }
     }, []);
@@ -366,7 +627,6 @@ function App() {
 
         routeDataRef.current = routeData;
         const coordinates = routeData.geometry.coordinates;
-        const totalLength = coordinates.length;
 
         // Animasyon süresini artırarak hareketi yavaşlatalım (daha tutarlı bir animasyon için)
         const animationDuration = 10000; // 15 saniye 15000
@@ -490,10 +750,13 @@ function App() {
                 setFollowingRoute(false);
 
                 // Normal görünüme geri dön (isteğe bağlı)
+                setViewTPS(false);// TODO test timeout icindeydi
                 setTimeout(() => {
-                    setViewTPS(false);
+
 
                     if (previousViewStateRef.current) {
+                        console.log("viewState test halinin zoom, pitch longitude latitude bearing: " + viewState.zoom + " " + viewState.pitch + " "+ viewState.longitude+ " " +viewState.latitude +" " + viewState.bearing );
+
                         setViewState({
                             ...previousViewStateRef.current,
                             zoom: previousViewStateRef.current.zoom < 15 ? 15 : previousViewStateRef.current.zoom,
@@ -507,9 +770,7 @@ function App() {
         animationRef.current = requestAnimationFrame(animate);
     }, [routeData, viewState, calculateBearing, easeInOutCubic]);
 
-
-
-    // TPS modunda marker görünürlüğünü değiştir
+    // TPS modunda marker görünürlüğünü değiştir TODO Deprecated
     const toggleMarkerVisibility = useCallback(() => {
         setShowMarkersInTPS(!showMarkersInTPS);
     }, [showMarkersInTPS]);
@@ -554,7 +815,65 @@ function App() {
         }));
     };
 
-    // Konum arama işlevi
+    //TODO KALDIRILDI...
+    const handleScreenshot = async () => {
+        if (!mapContainerRef.current) return;
+        const canvas = await html2canvas(mapContainerRef.current);
+        const dataURL = canvas.toDataURL("image/png");
+        const link = document.createElement("a");
+        link.href = dataURL;
+        link.download = "map.png";
+        link.click();
+    };
+
+    // Bu fonksiyonu component seviyesinde tanımlayın
+    const takeMapScreenshot = async () => {
+        try {
+
+            setScreenshotLoading(true); // Loading göstergesini başlat
+
+            // Map ref üzerinden mapbox nesnesine erişim
+            const map = mapRef.current?.getMap();
+
+            if (!map) {
+                console.error("Mapbox harita nesnesi bulunamadı");
+                setScreenshotLoading(false);
+                return;
+            }
+
+            // Ekran görüntüsü almak için takeScreenshot fonksiyonunu kullan
+            const imageUrl = await takeScreenshot(map);
+
+            // Görüntüyü indirme işlemi
+            const link = document.createElement('a');
+            link.href = imageUrl;
+            //link.download = `atm-map-screenshot-${new Date().toISOString().slice(0, 10)}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            setScreenshotLoading(false); // Loading göstergesini kapat
+
+            return imageUrl;
+        } catch (error) {
+            console.error("Ekran görüntüsü alınırken hata oluştu:", error);
+            setScreenshotLoading(false);
+            return null;
+        }
+    };
+
+// Helper fonksiyonu - kodunuzun üst kısmında tanımlayın
+    function takeScreenshot(map) {
+        return new Promise(function(resolve, reject) {
+            map.once("render", function() {
+                resolve(map.getCanvas().toDataURL());
+            });
+            /* render tetikle */
+            map.setBearing(map.getBearing());
+        });
+    }
+
+    // Konum arama işlevi TODO KALDIRILICAK
     const searchLocation = async () => {
         if (!searchText) return;
 
@@ -576,7 +895,7 @@ function App() {
         }
     };
 
-    // Haritaya tıklama işlevi (yeni ATM ekleme)
+    // Haritaya tıklama işlevi (yeni ATM ekleme) //TODO KALDIRILICAK
     const handleMapClick = (event) => {
         // Animasyon sırasında tıklamaları engelle
         if (animationInProgress) return;
@@ -597,6 +916,7 @@ function App() {
 
     // ATM seçme işlevi
     const selectAtm = (atm) => {
+        debugger;
         setSelectedAtm(null);
         setDirectionsPanelVisible(false);
         setSendButtonVisibility(true);
@@ -610,6 +930,7 @@ function App() {
         // Animasyon sırasında ATM seçmeyi engelle
         if (animationInProgress) return;
 
+        updateSelectedATM(atm);
         setSelectedAtm(atm);
         setViewState({
             ...viewState,
@@ -660,26 +981,19 @@ function App() {
         setIsDragging(false);
     };
 
+    // ATM Marker'larına tıklama işlevi TODO KALDIRILICAK...
     const renderMarkers = useMemo(() => {
-        // TPS modunda ve marker görünürlüğü kapalıysa gösterme
-        if (viewTPS && !showMarkersInTPS) return null;
-
-        return atmLocations.map((atm) => (
+        return filteredAtmLocations.map((atm) => (
             <Marker
                 key={atm.id}
                 latitude={atm.latitude}
                 longitude={atm.longitude}
-                onClick={() => selectAtm(atm)}
+                onClick={() => selectAtm(atm)} // Tıklama olayında selectAtm çağrılır
             >
-                <div className="marker-container">
-                    <div className="marker-glow"></div>
-                    <div className="marker"></div>
-                </div>
-
-                {/*<div className={`marker ${atm.isUserCreated ? 'user-created' : ''} ${selectedAtm?.id === atm.id ? 'selected' : ''}`}></div>*/}
+                <div className="atm-marker" />
             </Marker>
         ));
-    }, [atmLocations, selectedAtm, viewTPS, showMarkersInTPS, selectAtm]);
+    }, [filteredAtmLocations, selectAtm]);
 
     const RetryModal = ({ onRetry}) => (
         <div className="retry-modal-overlay">
@@ -690,8 +1004,9 @@ function App() {
         </div>
     );
 
+    //TODO Deprecated
     const renderUserMarker = useMemo(() => {
-        if (!userPosition || (viewTPS && !showMarkersInTPS)) return null;
+        if (!viewTPS && !userPosition) return null; // TODO yeni kaldirdim !viewTps &&
 
         return (
             <Marker
@@ -702,35 +1017,14 @@ function App() {
                 onDrag={onDrag}
                 onDragEnd={stopDragging}
             >
-                <div
-                    className="user-marker"
-                    style={{
-                        width: '30px',
-                        height: '30px',
-                        backgroundColor: '#03A9F4',
-                        borderRadius: '50%',
-                        border: '3px solid white',
-                        cursor: 'grab',
-                        position: 'relative',
-                    }}
-                >
-                    <div style={{
-                        position: 'absolute',
-                        top: '50%',
-                        left: '50%',
-                        transform: 'translate(-50%, -50%)',
-                        width: '10px',
-                        height: '10px',
-                        backgroundColor: 'white',
-                        borderRadius: '50%'
-                    }} />
-                </div>
             </Marker>
         );
     }, [userPosition, viewTPS, showMarkersInTPS, startDragging, onDrag, stopDragging]);
 
+
+    //TODO Deprecated
     const renderDestinationMarker = useMemo(() => {
-        if (!viewTPS || !selectedAtm) return null;
+        if (!viewTPS && !selectedAtm) return null; // TODO yeni kaldirdim !viewTps &&
 
         return (
             <Marker
@@ -755,15 +1049,17 @@ function App() {
     }
 
     // En kısa rota hesaplama
-    const calculateRoute = async () => {
+    const calculateRoute = async (generateQR = false) => {
+        console.log("TEST generateQR: " + generateQR);
         if (!userPosition || !selectedAtm || animationInProgress) return;
+        debugger;
 
         setIsCalculatingRoute(true);
         setDirectionsPanelVisible(true);
         setIsControlPaneDisabled(true);
 
         try {
-            // MapBox Directions API ile rota hesaplama
+            debugger;
             const response = await fetch(
                 `https://api.mapbox.com/directions/v5/mapbox/${routeType}/${userPosition.longitude},${userPosition.latitude};${selectedAtm.longitude},${selectedAtm.latitude}?steps=true&geometries=geojson&access_token=${MAPBOX_TOKEN}`
             );
@@ -780,31 +1076,51 @@ function App() {
                     }
                 };
 
+                debugger;
                 setRouteData(newRouteData);
+                setRouteSteps(data.routes[0].legs[0].steps);
 
-                // Rotanın tamamını görebilmek için harita görünümünü ayarla (TPS başlamadan önce)
                 const coordinates = data.routes[0].geometry.coordinates;
-                setRouteSteps(data.routes[0].legs[0].steps); // Rota adımlarını al
-                console.log("Steps:", data.routes[0]?.legs[0]?.steps);
                 const bounds = new mapboxgl.LngLatBounds();
+                coordinates.forEach(coord => bounds.extend(coord));
 
-                coordinates.forEach(coord => {
-                    bounds.extend(coord);
-                });
-
-                // MapRef kullanarak sınırları ayarla
                 if (mapRef.current) {
-                    mapRef.current.fitBounds(bounds, { padding: 40 });
+                    const centerLat = (userPosition.latitude + selectedAtm.latitude) / 2;
+                    const centerLng = (userPosition.longitude + selectedAtm.longitude) / 2;
+
+                    setIs3D(true);
+                    mapRef.current.flyTo({
+                        center: [centerLng, centerLat],
+                        zoom: 16,
+                        pitch: 60,
+                        bearing: 30,
+                        speed: 1.2,
+                        curve: 4,
+                        easing: t => t,
+                        essential: true
+                    });
                 }
 
-                // Kısa bir gecikme sonra TPS animasyonu başlat (önce tüm rotayı görmek için)
-                setTimeout(() => {
+                setTimeout(async () => {
                     setIsControlPaneDisabled(false);
-                    // Önceki görünüme geri dön
-                    console.log("MapApp: Directions paneli gösteriliyor. isDirectionsActive:", true, "isDirectionsAnimating:", true); // Panel gösterildiğinde log
 
-                    startTPSAnimation();
-                }, 1000);
+                    if (generateQR) {
+                        try {
+                            debugger;
+                            const imageUrl = await takeMapScreenshot();
+                            debugger;
+                            const uploadedUrl = await uploadImageToImgBB(imageUrl);
+                            setScreenshotUrl(imageUrl);
+                            setQrImageData(uploadedUrl);
+
+                            console.log("📸 Görsel yüklendi:", uploadedUrl);
+                        } catch (screenshotErr) {
+                            console.error("❌ Screenshot/Upload hatası:", screenshotErr);
+                        }
+                    } else {
+                        startTPSAnimation(); // Sadece izleme modunda animasyon başlasın
+                    }
+                }, 3000);
             }
         } catch (error) {
             console.error("Rota hesaplama hatası:", error);
@@ -817,7 +1133,7 @@ function App() {
     return (
         <div className="app-container">
 
-            <div className={`map-container ${showRetryModal} ? 'blur' : ''}`}>
+            <div ref={mapContainerRef} id="map-screenshot-area" className={`map-container ${showRetryModal ? 'blur' : ''}`}>
                 <Map
                     {...viewState}
                     ref={mapRef}
@@ -826,12 +1142,15 @@ function App() {
                     onDrag={onDrag}
                     onMouseUp={stopDragging}
                     onTouchEnd={stopDragging}
+                    onLoad={(e) => addCustomIconsAndImagesToMap(e.target)}
+                    onStyleData={(e) => addCustomIconsAndImagesToMap(e.target)}
+                    onSourceData={handleSourceData}  // ← BURAYI EKLEDİK
                     mapStyle={mapStyle}
                     mapboxAccessToken={MAPBOX_TOKEN}
-                    style={{width: '100%', height: '100%'}}
-                    terrain={is3D || viewTPS ? {source: 'mapbox-dem', exaggeration: 1.5} : undefined}
-                    attributionControl={false} // Gereksiz kontrolleri kaldırarak hafif performans artışı
-                    renderWorldCopies={false} // Dünya tekrarlarını kaldırarak render yükünü azalt
+                    style={{ width: '100%', height: '100%' }}
+                    terrain={is3D || viewTPS ? { source: 'mapbox-dem', exaggeration: 1.5 } : undefined}
+                    attributionControl={false}
+                    renderWorldCopies={false}
                 >
 
                     {/* ATM Marker'ları - TPS modunda gizlenir !viewTPS && */}
@@ -843,7 +1162,7 @@ function App() {
                             onClick={() => selectAtm(atm)}
                         >
                             {/*<div
-                                className={`marker ${atm.isUserCreated ? 'user-created' : ''} ${selectedAtm?.id === atm.id ? 'selected' : ''}`}></div>*/}
+                                className={marker ${atm.isUserCreated ? 'user-created' : ''} ${selectedAtm?.id === atm.id ? 'selected' : ''}}></div>*/}
                             <div
 
                                 style={{fontSize: '24px', cursor: 'pointer'}} // Adjust size and cursor
@@ -854,7 +1173,7 @@ function App() {
                     ))}
 
                     {/* Kullanıcı konumu (sürüklenebilir) - TPS modunda gizlenir */}
-                    {userPosition && !viewTPS && (
+                    {userPosition && !viewTPS && ( //{userPosition && !viewTPS && (
                         <Marker
                             latitude={userPosition.latitude}
                             longitude={userPosition.longitude}
@@ -864,25 +1183,15 @@ function App() {
                             onDragEnd={stopDragging}
                         >
                             <div
-                                className="user-marker"
                                 style={{
-                                    width: '40px',
-                                    height: '40px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    backgroundColor: '#03A9F4',
-                                    borderRadius: '50%',
-                                    border: '3px solid white',
-                                    cursor: 'grab',
-                                    position: 'relative',
-                                    fontSize: '20px', // Adjust emoji size
+                                    fontSize: '30px', // Emoji boyutunu ayarlama
                                 }}
                             >
-                                {/* Display emoji based on selectedRouteType */}
-                                {selectedRouteType === 'cycling' && '🚴'}
-                                {selectedRouteType === 'walking' && '🚶'}
-                                {selectedRouteType === 'driving' && '🚗'}
+                                {/* selectedRouteType'a göre emoji göstergesi */}
+                                {selectedRouteType === 'cycling' ? '🚴' :
+                                    selectedRouteType === 'walking' ? '🚶' :
+                                        selectedRouteType === 'driving' ? '🚗' :
+                                            null}
                             </div>
                         </Marker>
                     )}
@@ -906,13 +1215,21 @@ function App() {
                         />
                     </Source> {/*TODO: BURAYI YENI EKLEDIM ROTA CIZERKEN YOLUNDA GOZUKMESI ICIN BU..*/}
 
+                    <Source id="markers" type="geojson" data={renderMarkersAsGeoJSON}>
+                        <Layer
+                            id="marker-layer"
+                            type="symbol"
+                            layout={{
+                                'icon-image': ['get', 'icon'], // İkon ismini kullan
+                                'icon-size': 1.5, // İkon boyutu
+                                'icon-allow-overlap': true, // İkonların üst üste binmesine izin ver
+                            }}
+                        />
+                    </Source>
 
-                    {/* Hedef ATM işareti - TPS modunda gösterilir */}
-                    {renderDestinationMarker}
+                    {/* Hedef ATM işareti -  {renderDestinationMarker} TPS modunda gösterilir */}
 
-                    {/* Kullanıcı konumu işareti - TPS modunda gösterilir */}
-                    {renderUserMarker}
-
+                    {/* Kullanıcı konumu işareti -  {renderUserMarker} TPS modunda gösterilir */}
 
                     {/* Hedef ATM işareti - TPS modunda gösterilir */}
                     {!viewTPS && selectedAtm && (
@@ -927,9 +1244,6 @@ function App() {
 
                         </Marker>
                     )}
-
-                    {showRetryModal && <RetryModal onRetry={getAtmLocations}/>}
-
 
                     {/* 3D görünümde terrain (yükseklik) kaynak tanımı */}
                     {(is3D || viewTPS) && (
@@ -948,119 +1262,79 @@ function App() {
                             <Layer {...buildingLayer} />
                         </Source>
                     )}
-
-                    {/* Harita kontrolleri - TPS modunda gizlenir */}
-                    {/*{!viewTPS && <NavigationControl position="top-right" />} {TODO: Burayi cikarttim ve cozuldu suanlik prolbem*/}
-
                 </Map>
+            </div>
 
-                {/* selectedAtm !== null &&*/}
-                {directionsPanelVisible && (
-                    <DirectionsPanel
-                        steps={routeSteps}
-                    />
-                )}
+            {showRetryModal && <RetryModal onRetry={getAtmLocations}/>}
 
-                {/* Mini harita bileşeni */}
-                {animationInProgress && (
-                    <MiniMap
-                        routeData={routeData}
-                        userPosition={userPosition}
-                        selectedAtm={selectedAtm}
-                        currentPosition={cameraPosition}
-                        mapboxToken={MAPBOX_TOKEN}
-                    />
-                )}
 
+            {/* selectedAtm !== null &&*/}
+            {directionsPanelVisible && !isQrCodePanelOpen && (
+                <DirectionsPanel
+                    steps={routeSteps}
+                />
+            )}
+
+            <QRPage
+                isOpen={isQrCodePanelOpen}
+                togglePanel={toggleQrCodePanel}
+                atmList={atmLocations}
+                setUserPosition={setUserPosition}
+                setSelectedAtm={setSelectedAtm}
+                calculateRoute={() => calculateRoute(true)}
+                qrImageData={qrImageData} // ✅ Ekle
+            />
+
+            {/* Mini harita bileşeni */}
+            {animationInProgress && (
+                <MiniMap
+                    routeData={routeData}
+                    userPosition={userPosition}
+                    selectedAtm={selectedAtm}
+                    currentPosition={cameraPosition}
+                    mapboxToken={MAPBOX_TOKEN}
+                />
+            )}
+
+            {/*TODO BURASI QRCODE PANELI ACILDIGINDA GOZUKUYOR REAFCTOR...*/}
+            {!isQrCodePanelOpen &&(
                 <div>
                     <NotificationPanel userId={"6bb91e57-032c-40db-b6ce-4e3ef459c3a0"}/>
                 </div>
+            )}
 
-                <AtmPanel
-                    isOpen={isSendMoneyPanelOpen}
-                    togglePanel={toggleSendMoneyPanel}
-                    selectedAtm={selectedAtm}
-                />
 
-                {/* Rota hesaplama düğmesi */}
-                {userPosition && selectedAtm && !isSendMoneyPanelOpen && (
-                    <button
-                        onClick={animationInProgress ? stopTPSAnimation : calculateRoute}
-                        className="bottom-center-button"
-                        disabled={isCalculatingRoute}
-                        style={{
-                            background: animationInProgress
-                                ? `linear-gradient(to right, #4CAF50 ${animationProgress * 100}%, #cccccc ${animationProgress * 100}%)`
-                                : undefined,
-                        }}
-                    >
-                        <div className="button-content">
-                            {isCalculatingRoute
-                                ? 'Hesaplanıyor...'
-                                : animationInProgress
-                                    ? `Rota Gösteriliyor (${Math.round(animationProgress * 100)}%)`
-                                    : 'Animasyonu Başlat'}
-                        </div>
-                    </button>
-                )}
+            <AtmPanel
+                isOpen={isSendMoneyPanelOpen}
+                togglePanel={toggleSendMoneyPanel}
+                selectedAtm={selectedAtm}
+            />
 
-                {/* TPS modu göstergesi */}
-                {viewTPS && (
-                    <div className="tps-overlay">
-                        <div className="tps-info">
-                            <div className="tps-progress-bar">
-                                <div
-                                    className="tps-progress"
-                                    style={{width: `${animationProgress * 100}%`}}
-                                ></div>
-                            </div>
-                            <div className="tps-text">
-                                {selectedAtm ? `${selectedAtm.name} yolunda` : 'Rota izleniyor'} -
-                                %{Math.round(animationProgress * 100)}
-                            </div>
-                        </div>
-                        <div className="tps-compass">
-                            <div className="compass-inner" style={{transform: `rotate(${viewState.bearing}deg)`}}>
-                                <div className="compass-arrow"></div>
-                                <div className="compass-n">N</div>
-                            </div>
-                        </div>
-                        <button
-                            className="tps-marker-toggle"
-                            onClick={toggleMarkerVisibility}
-                        >
-                            {showMarkersInTPS ? 'Simgeleri Gizle' : 'Simgeleri Göster'}
-                        </button>
-
+            {/* Rota hesaplama düğmesi */}
+            {userPosition && selectedAtm && !isSendMoneyPanelOpen && !isQrCodePanelOpen &&  (
+                <button
+                    onClick={animationInProgress ? stopTPSAnimation : () => calculateRoute(false)}
+                    className="bottom-center-button"
+                    disabled={isCalculatingRoute}
+                    style={{
+                        background: animationInProgress
+                            ? `linear-gradient(to right, #4CAF50 ${animationProgress * 100}%, #cccccc ${animationProgress * 100}%)`
+                            : undefined,
+                    }}
+                >
+                    <div className="button-content">
+                        {isCalculatingRoute
+                            ? 'Hesaplanıyor...'
+                            : animationInProgress
+                                ? `Rota Gösteriliyor (${Math.round(animationProgress * 100)}%)`
+                                : 'Animasyonu Başlat'}
                     </div>
-                )}
-
-                {/* Animasyon iptal düğmesi */}
-                {animationInProgress && (
-                    <button
-                        className="cancel-animation-btn"
-                        onClick={() => {
-                            if (animationRef.current) {
-                                cancelAnimationFrame(animationRef.current);
-                                setAnimationInProgress(false);
-                                setFollowingRoute(false);
-                                setViewTPS(false);
-
-                                // Önceki görünüme geri dön
-                                if (previousViewStateRef.current) {
-                                    setViewState(previousViewStateRef.current);
-                                }
-                            }
-                        }}
-                    >
-                        Animasyonu İptal Et
-                    </button>
-                )}
-            </div>
+                </button>
+            )}
 
             {/* Kontrol paneli - TPS modunda gizlenir */}
-            {!viewTPS && !isSendMoneyPanelOpen && !showRetryModal && (
-                <div className={`control-panel ${isControlPaneDisabled} ? 'disabled' : ''}`}>
+            {!viewTPS && !isSendMoneyPanelOpen && !isQrCodePanelOpen && !showRetryModal && (
+                <div className={`control-panel ${isControlPaneDisabled ? 'disabled' : ''}`}>
                     <h2>ATM Harita Uygulaması</h2>
 
                     {/* Arama kutusu */}
@@ -1091,23 +1365,6 @@ function App() {
                     >
                         {is3D ? '2D Görünüme Geç' : '3D Görünüme Geç'}
                     </button>
-
-                    {/* 3D modda bina yüksekliği kontrolü
-                    {is3D && (
-                        <div className="building-controls">
-                            <label>Bina Yüksekliği: {buildingHeight}x</label>
-                            <input
-                                type="range"
-                                min="0.5"
-                                max="3"
-                                step="0.1"
-                                value={buildingHeight}
-                                onChange={(e) => setBuildingHeight(parseFloat(e.target.value))}
-                                className="height-slider"
-                            />
-                        </div>
-                    )}*/}
-
 
                     <div className="filter-container-modern">
                         <div className="filter-group-top">
@@ -1177,27 +1434,20 @@ function App() {
                         </div>
                     )}
 
-
-                    {/* Bilgi kutusu */}
-                    {!selectedAtm && (
-                        <div className="info-box">
-                            <p><strong>İpuçları:</strong></p>
-                            <ul>
-                                <li>ATM eklemek için CTRL tuşuna basılı tutarak haritaya tıklayın.</li>
-                                <li>Konumunuzu taşımak için mavi kişi simgesini sürükleyin.</li>
-                                <li>Rota hesaplamak için bir ATM seçin ve "TPS Modunda Rotayı İzle" düğmesine
-                                    tıklayın.
-                                </li>
-                                <li>TPS modunda harita, rotayı birinci kişi görünümünde izleyecektir.</li>
-                            </ul>
-                        </div>
+                    {!selectedAtm &&(
+                        <button
+                            onClick={toggleQrCodePanel}
+                            className="view-toggle-button"
+                            disabled={animationInProgress}
+                        >
+                            {'QR KOD'}
+                        </button>
                     )}
-
 
                     {/* Seçilen ATM bilgisi */}
                     {selectedAtm && (
                         <div className="selected-info">
-                            <h3 className= "selected-info-h3">{selectedAtm.name}</h3>
+                            <h3 className="selected-info-h3">{selectedAtm.name}</h3>
                             <p>Enlem: {selectedAtm.latitude.toFixed(4)}</p>
                             <p>Boylam: {selectedAtm.longitude.toFixed(4)}</p>
                             <p>Adres: {selectedAtm.address}</p>

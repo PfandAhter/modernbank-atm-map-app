@@ -1,0 +1,197 @@
+
+/* QRPage.css */
+
+/* Popup arka planı */
+.qr-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+
+/* Modal yapısı */
+.qr-modal {
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    width: 100%;
+    max-width: 450px;
+    margin: 0 15px;
+    overflow: hidden;
+    animation: modalFadeIn 0.3s ease-out;
+}
+
+/* Modal başlık kısmı */
+.qr-header {
+    background-color: #1e40af;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.qr-title {
+    color: white;
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+}
+
+/* İçerik alanı */
+.qr-content {
+    padding: 20px;
+}
+
+/* Form grupları */
+.qr-form-group {
+    margin-bottom: 20px;
+}
+
+/* Label stilleri */
+.qr-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+}
+
+/* Select kutusu */
+.qr-select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d1d1;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #333;
+    background-color: #fff;
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.qr-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+/* Input stilleri */
+.qr-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d1d1;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #333;
+    background-color: #fff;
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.qr-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.qr-input::placeholder {
+    color: #999;
+}
+
+/* Buton grupları */
+.qr-button-group {
+    display: flex;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+/* Buton stilleri */
+.qr-button {
+    flex: 1;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.qr-button:hover {
+    transform: translateY(-1px);
+}
+
+.qr-button:active {
+    transform: translateY(0);
+}
+
+/* Primary buton (mavi) */
+.qr-button-primary {
+    background-color: #1e40af;
+    color: white;
+}
+
+.qr-button-primary:hover {
+    background-color: #1e3a8a;
+}
+
+/* Secondary buton (gri) */
+.qr-button-secondary {
+    background-color: #e5e7eb;
+    color: #374151;
+}
+
+.qr-button-secondary:hover {
+    background-color: #d1d5db;
+}
+
+.qr-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-top: 30px;
+}
+
+.qr-preview canvas {
+    width: 300px !important;
+    height: 300px !important;
+}
+
+.qr-preview p {
+    text-align: center;
+    max-width: 90%;
+    word-break: break-all;
+    margin-top: 15px;
+    font-size: 14px;
+    color: #333;
+}
+
+/* Animasyon */
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive düzenlemeler */
+@media (max-width: 500px) {
+    .qr-modal {
+        width: 90%;
+        margin: 0 10px;
+    }
+
+    .qr-button-group {
+        flex-direction: column;
+    }
+}
